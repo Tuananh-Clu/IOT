@@ -164,7 +164,7 @@ export function DonutPanelChart({
 
 export function Heatmap({ matrix }: { matrix: number[][] }) {
   const max = Math.max(1, ...matrix.flat())
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 
   return (
     <div className="overflow-x-auto">
@@ -190,5 +190,5 @@ export function Heatmap({ matrix }: { matrix: number[][] }) {
 }
 
 function NoChartData() {
-  return <div className="grid h-44 place-items-center rounded-control border border-dashed border-lot-divider text-sm text-lot-muted">No chart data</div>
+  return <div className="grid h-44 place-items-center rounded-control border border-dashed border-lot-divider text-sm text-lot-muted">Chưa có dữ liệu biểu đồ</div>
 }

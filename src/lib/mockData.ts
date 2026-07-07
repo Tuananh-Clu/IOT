@@ -12,7 +12,7 @@ const headers = {
 async function fetchTable<T>(table: string, query = ''): Promise<T[]> {
   const response = await fetch(`${apiUrl}${table}${query}`, { headers })
   if (!response.ok) {
-    throw new Error(`Failed to fetch ${table}: ${response.statusText}`)
+    throw new Error(`Không thể tải bảng ${table}: ${response.statusText}`)
   }
   return response.json()
 }
@@ -137,7 +137,7 @@ export async function getSensorHistory(hours = 1) {
     }
   )
   if (!response.ok) {
-    throw new Error(`Failed to fetch sensor history: ${response.statusText}`)
+    throw new Error(`Không thể tải lịch sử cảm biến: ${response.statusText}`)
   }
   return response.json()
 }

@@ -9,7 +9,7 @@ export async function checkoutVehicle(
   durationMinutes: number,
 ): Promise<void> {
   if (!isApiConfigured) {
-    throw new Error('Checkout requires Supabase configuration in .env.local')
+    throw new Error('Thanh toán cần cấu hình Supabase trong .env.local')
   }
 
   const checkedOutAt = new Date().toISOString()

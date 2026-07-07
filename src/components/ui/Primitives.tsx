@@ -66,9 +66,27 @@ export function StatusPill({ status, label }: { status: string; label?: string }
 
   return (
     <span className={`inline-flex items-center rounded-control border px-2 py-1 text-xs font-semibold ${style}`}>
-      {label ?? status}
+      {label ?? translateStatus(status)}
     </span>
   )
+}
+
+function translateStatus(status: string) {
+  const normalized = status.toLowerCase()
+  if (normalized.includes('success') || normalized.includes('paid')) return 'Đã thanh toán'
+  if (normalized.includes('pending')) return 'Đang chờ'
+  if (normalized.includes('reserved')) return 'Đã giữ chỗ'
+  if (normalized.includes('occupied')) return 'Đang có xe'
+  if (normalized.includes('empty') || normalized.includes('free')) return 'Còn trống'
+  if (normalized.includes('online')) return 'Trực tuyến'
+  if (normalized.includes('offline')) return 'Mất kết nối'
+  if (normalized.includes('open')) return 'Đang mở'
+  if (normalized.includes('closed')) return 'Đang đóng'
+  if (normalized.includes('alert')) return 'Cảnh báo'
+  if (normalized.includes('parking') || normalized.includes('in_progress') || normalized.includes('parked')) return 'Đang đỗ'
+  if (normalized.includes('completed')) return 'Hoàn tất'
+  if (normalized.includes('failed')) return 'Thất bại'
+  return status
 }
 
 export function EmptyState({ title, message }: { title: string; message: string }) {

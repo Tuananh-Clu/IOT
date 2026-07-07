@@ -33,7 +33,7 @@ export function Login({ onLogin }: LoginProps) {
         .single()
 
       if (authError) throw authError
-      if (!data) throw new Error('Account not found')
+      if (!data) throw new Error('Không tìm thấy tài khoản')
 
       onLogin({
         id: data.id,
@@ -42,7 +42,7 @@ export function Login({ onLogin }: LoginProps) {
         role: data.resident_id ? 'user' : 'admin',
       })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại')
     } finally {
       setLoading(false)
     }
@@ -57,15 +57,15 @@ export function Login({ onLogin }: LoginProps) {
           </div>
           <div>
             <h1 className="digital-text text-3xl font-bold leading-8 text-lot-lane">Vung Tau Plaza</h1>
-            <p className="text-sm text-lot-muted">RFID parking access console</p>
+            <p className="text-sm text-lot-muted">Bảng điều khiển ra vào bãi xe RFID</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="painted-panel p-5">
           <div className="mb-5 rounded-control border border-lot-divider bg-black/20 p-4">
             <div className="lane-stripe mb-3 w-28" />
-            <p className="digital-text text-2xl font-semibold text-lot-empty">ACCESS READY</p>
-            <p className="text-sm text-lot-muted">Sign in with an admin or resident account.</p>
+            <p className="digital-text text-2xl font-semibold text-lot-empty">SẴN SÀNG TRUY CẬP</p>
+            <p className="text-sm text-lot-muted">Đăng nhập bằng tài khoản quản trị hoặc cư dân.</p>
           </div>
 
           {error && (
@@ -76,21 +76,21 @@ export function Login({ onLogin }: LoginProps) {
           )}
 
           <label className="mb-4 block">
-            <span className="mb-1 block text-sm font-semibold text-lot-lane">Username</span>
+            <span className="mb-1 block text-sm font-semibold text-lot-lane">Tên đăng nhập</span>
             <span className="relative block">
               <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lot-muted" />
               <input
                 className="focus-track w-full rounded-control border border-lot-divider bg-lot-asphalt px-10 py-3 text-lot-lane placeholder:text-lot-muted"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder="operator"
+                placeholder="nguoi-van-hanh"
                 required
               />
             </span>
           </label>
 
           <label className="mb-5 block">
-            <span className="mb-1 block text-sm font-semibold text-lot-lane">Password</span>
+            <span className="mb-1 block text-sm font-semibold text-lot-lane">Mật khẩu</span>
             <span className="relative block">
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lot-muted" />
               <input
@@ -98,7 +98,7 @@ export function Login({ onLogin }: LoginProps) {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="password"
+                placeholder="mat-khau"
                 required
               />
             </span>
@@ -110,7 +110,7 @@ export function Login({ onLogin }: LoginProps) {
             className="focus-track flex w-full items-center justify-center gap-2 rounded-control bg-lot-reserved px-4 py-3 font-bold text-lot-asphalt disabled:opacity-70"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Open dashboard
+            Mở dashboard
           </button>
         </form>
       </section>

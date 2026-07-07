@@ -13,7 +13,7 @@ export function useDashboardData() {
     fetchDashboard()
       .then(setData)
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Failed to load dashboard')
+        setError(err instanceof Error ? err.message : 'Không thể tải dashboard')
       })
       .finally(() => setLoading(false))
   }, [])

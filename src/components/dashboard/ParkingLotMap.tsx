@@ -28,8 +28,8 @@ export function ParkingLotMap({ slots, history }: { slots: ParkingSlot[]; histor
       <div className="relative min-h-[430px] overflow-hidden rounded-control border border-lot-divider bg-[#252923] p-4">
         <div className="absolute left-1/2 top-0 h-full w-28 -translate-x-1/2 bg-[#1B201B]" />
         <div className="absolute left-1/2 top-8 h-[calc(100%-64px)] w-1 -translate-x-1/2 bg-lot-reserved" />
-        <div className="absolute left-4 top-4 rounded-control border border-lot-empty/50 px-3 py-2 text-xs text-lot-empty">ENTRY</div>
-        <div className="absolute bottom-4 right-4 rounded-control border border-lot-occupied/50 px-3 py-2 text-xs text-lot-occupied">EXIT</div>
+        <div className="absolute left-4 top-4 rounded-control border border-lot-empty/50 px-3 py-2 text-xs text-lot-empty">LỐI VÀO</div>
+        <div className="absolute bottom-4 right-4 rounded-control border border-lot-occupied/50 px-3 py-2 text-xs text-lot-occupied">LỐI RA</div>
         <div className="relative z-10 grid min-h-[390px] grid-cols-2 gap-x-24 gap-y-3">
           {displaySlots.map((slot, index) => {
             const tone = slotTone(slot.status)
@@ -45,7 +45,7 @@ export function ParkingLotMap({ slots, history }: { slots: ParkingSlot[]; histor
                 style={{ background: tone.fill, color: tone.text }}
               >
                 <span className="digital-text block text-xl font-bold">{slot.slot_number}</span>
-                <span className="block text-[10px] font-semibold uppercase">{slot.status}</span>
+                <span className="block text-[10px] font-semibold uppercase">{translateSlotStatus(slot.status)}</span>
               </button>
             )
           })}
@@ -53,17 +53,25 @@ export function ParkingLotMap({ slots, history }: { slots: ParkingSlot[]; histor
       </div>
 
       <aside className="rounded-control border border-lot-divider bg-black/18 p-4">
-        <p className="mb-2 text-sm text-lot-muted">Selected bay</p>
+        <p className="mb-2 text-sm text-lot-muted">Ô đang chọn</p>
         <p className="digital-text text-5xl font-bold text-lot-lane">{selected?.slot_number ?? '--'}</p>
         {selected && <StatusPill status={selected.status} />}
         <div className="mt-5 space-y-3 text-sm">
-          <Detail label="Resident" value={selected?.resident?.full_name ?? activeSession?.resident?.full_name ?? 'Unassigned'} />
-          <Detail label="License plate" value={activeSession?.license_plate ?? 'No active vehicle'} />
-          <Detail label="Parked since" value={activeSession?.time_in ? new Date(activeSession.time_in).toLocaleString('vi-VN') : 'None'} />
+          <Detail label="Cư dân" value={selected?.resident?.full_name ?? activeSession?.resident?.full_name ?? 'Chưa gán'} />
+          <Detail label="Biển số" value={activeSession?.license_plate ?? 'Không có xe đang đỗ'} />
+          <Detail label="Đỗ từ" value={activeSession?.time_in ? new Date(activeSession.time_in).toLocaleString('vi-VN') : 'Không có'} />
         </div>
       </aside>
     </div>
   )
+}
+
+function translateSlotStatus(value: string) {
+  const normalized = value.toLowerCase()
+  if (normalized.includes('occupied')) return 'Có xe'
+  if (normalized.includes('reserved')) return 'Giữ chỗ'
+  if (normalized.includes('empty') || normalized.includes('free')) return 'Trống'
+  return value
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

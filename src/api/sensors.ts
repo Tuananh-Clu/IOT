@@ -11,7 +11,7 @@ export async function fetchSensorHistory(hours = 1): Promise<ParkingSensorData[]
   })
   
   if (error) {
-    throw new Error(`Failed to fetch sensor history: ${error.message}`)
+    throw new Error(`Không thể tải lịch sử cảm biến: ${error.message}`)
   }
   
   return data as ParkingSensorData[]

@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, CarFront, LogOut, RadioTower, UserRound } from 'lucide-react'
+import { Activity, CarFront, CreditCard, IdCard, LogOut, RadioTower, UserRound } from 'lucide-react'
 import { fetchDashboard, type DashboardData } from '@/api/dashboard'
 import { useSensorStream } from '@/hooks/useSensorStream'
 import { Login, type UserAccount } from '@/pages/Login'
 import { AdminDashboard } from '@/pages/AdminDashboard'
+import { CustomerPayments } from '@/pages/CustomerPayments'
+import { Residents } from '@/pages/Residents'
 import { Sensors } from '@/pages/Sensors'
 import { UserDashboard } from '@/pages/UserDashboard'
 import { EmptyState, LoadingDeck } from '@/components/ui/Primitives'
 
-type Tab = 'overview' | 'devices' | 'resident'
+type Tab = 'overview' | 'devices' | 'residents' | 'resident' | 'billing'
 
 const SESSION_KEY = 'parking_floor_session'
 
@@ -37,18 +39,22 @@ export default function App() {
     setLoading(true)
     fetchDashboard()
       .then(setData)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Unable to load parking data'))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Không thể tải dữ liệu bãi xe'))
       .finally(() => setLoading(false))
   }, [])
 
   const tabs = useMemo(() => {
     if (account?.role === 'admin') {
       return [
-        { id: 'overview' as const, label: 'Overview', icon: CarFront },
-        { id: 'devices' as const, label: 'Devices', icon: RadioTower },
+        { id: 'overview' as const, label: 'Tổng quan', icon: CarFront },
+        { id: 'devices' as const, label: 'Thiết bị', icon: RadioTower },
+        { id: 'residents' as const, label: 'Cư dân', icon: IdCard },
       ]
     }
-    return [{ id: 'resident' as const, label: 'My parking', icon: UserRound }]
+    return [
+      { id: 'resident' as const, label: 'Xe của tôi', icon: UserRound },
+      { id: 'billing' as const, label: 'Thanh toán', icon: CreditCard },
+    ]
   }, [account?.role])
 
   const handleLogin = (nextAccount: UserAccount) => {
@@ -75,7 +81,7 @@ export default function App() {
   if (error || !data) {
     return (
       <main className="min-h-screen p-4 md:p-6">
-        <EmptyState title="Data connection stalled" message={error ?? 'No dashboard data returned.'} />
+        <EmptyState title="Kết nối dữ liệu bị gián đoạn" message={error ?? 'Không có dữ liệu dashboard trả về.'} />
       </main>
     )
   }
@@ -90,24 +96,24 @@ export default function App() {
             </div>
             <div>
               <p className="digital-text text-xl font-bold leading-5 text-lot-lane">Vung Tau Plaza</p>
-              <p className="text-xs text-lot-muted">Smart parking control floor</p>
+              <p className="text-xs text-lot-muted">Trung tâm điều phối bãi xe thông minh</p>
             </div>
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
             {flameDetected && (
               <span className="rounded-control border border-lot-occupied/50 bg-lot-occupied/15 px-3 py-2 text-sm text-lot-occupied">
-                Safety alert
+                Cảnh báo an toàn
               </span>
             )}
             <span className="rounded-control border border-lot-divider px-3 py-2 text-sm text-lot-muted">
-              {account.role === 'admin' ? 'Admin bay' : account.username}
+              {account.role === 'admin' ? 'Khu quản trị' : account.username}
             </span>
             <button
               type="button"
               onClick={handleLogout}
               className="focus-track grid h-10 w-10 place-items-center rounded-control border border-lot-divider text-lot-muted hover:text-lot-lane"
-              aria-label="Log out"
+              aria-label="Đăng xuất"
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -139,14 +145,16 @@ export default function App() {
           <div className="mt-auto hidden rounded-control border border-lot-divider p-2 text-center md:block">
             <Activity className="mx-auto mb-2 h-4 w-4 text-lot-empty" />
             <p className="digital-text text-lg font-bold text-lot-empty">{data.slots.length}</p>
-            <p className="text-[10px] text-lot-muted">slots</p>
+            <p className="text-[10px] text-lot-muted">ô đỗ</p>
           </div>
         </nav>
 
         <main className="min-w-0 pb-10">
           {tab === 'overview' && account.role === 'admin' && <AdminDashboard data={data} />}
           {tab === 'devices' && account.role === 'admin' && <Sensors sensors={data.sensors} />}
+          {tab === 'residents' && account.role === 'admin' && <Residents data={data} />}
           {tab === 'resident' && <UserDashboard residentId={account.resident_id ?? data.residents[0]?.id ?? ''} data={data} />}
+          {tab === 'billing' && <CustomerPayments residentId={account.resident_id ?? data.residents[0]?.id ?? ''} data={data} />}
         </main>
       </div>
     </div>

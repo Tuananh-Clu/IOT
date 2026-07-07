@@ -15,7 +15,7 @@ function headers(extra?: HeadersInit): HeadersInit {
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${baseUrl}/rest/v1/${path}`, { headers: headers() })
   if (!response.ok) {
-    throw new Error(`Request failed (${response.status}): ${path}`)
+    throw new Error(`Yêu cầu thất bại (${response.status}): ${path}`)
   }
   return response.json() as Promise<T>
 }
@@ -27,7 +27,7 @@ export async function apiPatch(path: string, body: Record<string, unknown>): Pro
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new Error(`Update failed (${response.status}): ${path}`)
+    throw new Error(`Cập nhật thất bại (${response.status}): ${path}`)
   }
 }
 
@@ -38,6 +38,6 @@ export async function apiPost(path: string, body: Record<string, unknown>): Prom
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new Error(`Create failed (${response.status}): ${path}`)
+    throw new Error(`Tạo mới thất bại (${response.status}): ${path}`)
   }
 }
