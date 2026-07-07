@@ -1,122 +1,154 @@
-import { useState, useEffect } from 'react'
-import { AppLayout } from '@/components/layout/AppLayout'
-import { AdminDashboard } from '@/pages/AdminDashboard'
-import { UserDashboard } from '@/pages/UserDashboard'
-import { Residents } from '@/pages/Residents'
-import { Cards } from '@/pages/Cards'
-import { Sensors } from '@/pages/Sensors'
-import { Login, type UserAccount } from '@/pages/Login'
-import { useDashboardData } from '@/hooks/useDashboardData'
-import { SkeletonCard } from '@/components/ui/SkeletonCard'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { AlertTriangle } from 'lucide-react'
-import { type Resident } from '@/types'
+import { useEffect, useMemo, useState } from 'react'
+import { Activity, CarFront, LogOut, RadioTower, UserRound } from 'lucide-react'
+import { fetchDashboard, type DashboardData } from '@/api/dashboard'
 import { useSensorStream } from '@/hooks/useSensorStream'
+import { Login, type UserAccount } from '@/pages/Login'
+import { AdminDashboard } from '@/pages/AdminDashboard'
+import { Sensors } from '@/pages/Sensors'
+import { UserDashboard } from '@/pages/UserDashboard'
+import { EmptyState, LoadingDeck } from '@/components/ui/Primitives'
+
+type Tab = 'overview' | 'devices' | 'resident'
+
+const SESSION_KEY = 'parking_floor_session'
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isAuthLoading, setIsAuthLoading] = useState(true)
-  const [userRole, setUserRole] = useState<'user' | 'admin'>('user')
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null)
-  const [activeTab, setActiveTab] = useState('overview')
-  
-  const { data, loading, error } = useDashboardData()
-  
-  // Real-time flame detection for the top-level layout
-  const { flameDetected } = useSensorStream(1) // Keep a short stream just for the layout banner
-
-  // Local state for residents to simulate CRUD
-  const [localResidents, setLocalResidents] = useState<Resident[]>([])
+  const [account, setAccount] = useState<UserAccount | null>(null)
+  const [tab, setTab] = useState<Tab>('overview')
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const { flameDetected } = useSensorStream(1)
 
   useEffect(() => {
-    const savedSession = localStorage.getItem('nexus_session')
-    if (savedSession) {
+    const saved = localStorage.getItem(SESSION_KEY)
+    if (saved) {
       try {
-        const account = JSON.parse(savedSession) as UserAccount
-        setCurrentUser(account)
-        setUserRole(account.role)
-        setIsAuthenticated(true)
-      } catch (e) {
-        localStorage.removeItem('nexus_session')
+        const parsed = JSON.parse(saved) as UserAccount
+        setAccount(parsed)
+        setTab(parsed.role === 'admin' ? 'overview' : 'resident')
+      } catch {
+        localStorage.removeItem(SESSION_KEY)
       }
     }
-    setIsAuthLoading(false)
   }, [])
 
-  const handleLogin = (account: UserAccount) => {
-    localStorage.setItem('nexus_session', JSON.stringify(account))
-    setCurrentUser(account)
-    setUserRole(account.role)
-    setIsAuthenticated(true)
+  useEffect(() => {
+    setLoading(true)
+    fetchDashboard()
+      .then(setData)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Unable to load parking data'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const tabs = useMemo(() => {
+    if (account?.role === 'admin') {
+      return [
+        { id: 'overview' as const, label: 'Overview', icon: CarFront },
+        { id: 'devices' as const, label: 'Devices', icon: RadioTower },
+      ]
+    }
+    return [{ id: 'resident' as const, label: 'My parking', icon: UserRound }]
+  }, [account?.role])
+
+  const handleLogin = (nextAccount: UserAccount) => {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(nextAccount))
+    setAccount(nextAccount)
+    setTab(nextAccount.role === 'admin' ? 'overview' : 'resident')
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('nexus_session')
-    setCurrentUser(null)
-    setIsAuthenticated(false)
+    localStorage.removeItem(SESSION_KEY)
+    setAccount(null)
   }
 
-  useEffect(() => {
-    if (data?.residents) {
-      setLocalResidents(data.residents)
-    }
-  }, [data])
+  if (!account) return <Login onLogin={handleLogin} />
 
-  if (isAuthLoading) {
-    return <div className="min-h-screen bg-sp-base flex items-center justify-center"><SkeletonCard className="w-80" /></div>
+  if (loading) {
+    return (
+      <main className="min-h-screen p-4 md:p-6">
+        <LoadingDeck />
+      </main>
+    )
   }
 
-  if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />
+  if (error || !data) {
+    return (
+      <main className="min-h-screen p-4 md:p-6">
+        <EmptyState title="Data connection stalled" message={error ?? 'No dashboard data returned.'} />
+      </main>
+    )
   }
-
-  if (loading) return (
-    <div className="min-h-screen bg-sp-base flex items-center justify-center">
-      <div className="w-full max-w-4xl p-8 space-y-6">
-        <SkeletonCard />
-        <div className="grid grid-cols-3 gap-6">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-      </div>
-    </div>
-  )
-  
-  if (error) return (
-    <div className="min-h-screen bg-sp-base flex items-center justify-center p-8">
-      <EmptyState 
-        icon={AlertTriangle} 
-        title="Connection Error" 
-        message={error} 
-        className="bg-sp-surface border border-sp-border rounded-xl p-12"
-      />
-    </div>
-  )
-  
-  if (!data) return null
-
-  // Inject locally managed residents into data stream
-  const currentData = { ...data, residents: localResidents }
 
   return (
-    <AppLayout 
-      activeTab={activeTab} 
-      onTabChange={setActiveTab} 
-      userRole={userRole}
-      onLogout={handleLogout}
-      flameDetected={flameDetected}
-    >
-      {activeTab === 'overview' && (
-        currentUser?.role === 'user' ? (
-          <UserDashboard residentId={currentUser.resident_id!} data={currentData} />
-        ) : (
-          <AdminDashboard data={currentData} />
-        )
-      )}
-      {activeTab === 'residents' && <Residents data={currentData.residents} onUpdateData={setLocalResidents} />}
-      {activeTab === 'cards' && <Cards data={currentData.residents} />}
-      {activeTab === 'sensors' && <Sensors sensors={currentData.sensors} />}
-    </AppLayout>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-30 border-b border-lot-divider bg-lot-asphalt/92 backdrop-blur">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-4 py-3 md:px-6">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-control border border-lot-divider bg-lot-panel">
+              <CarFront className="h-5 w-5 text-lot-reserved" />
+            </div>
+            <div>
+              <p className="digital-text text-xl font-bold leading-5 text-lot-lane">Vung Tau Plaza</p>
+              <p className="text-xs text-lot-muted">Smart parking control floor</p>
+            </div>
+          </div>
+
+          <div className="hidden items-center gap-2 md:flex">
+            {flameDetected && (
+              <span className="rounded-control border border-lot-occupied/50 bg-lot-occupied/15 px-3 py-2 text-sm text-lot-occupied">
+                Safety alert
+              </span>
+            )}
+            <span className="rounded-control border border-lot-divider px-3 py-2 text-sm text-lot-muted">
+              {account.role === 'admin' ? 'Admin bay' : account.username}
+            </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="focus-track grid h-10 w-10 place-items-center rounded-control border border-lot-divider text-lot-muted hover:text-lot-lane"
+              aria-label="Log out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto grid max-w-[1500px] gap-4 px-4 py-4 md:grid-cols-[84px_minmax(0,1fr)] md:px-6">
+        <nav className="control-surface flex gap-2 rounded-control p-2 md:sticky md:top-[76px] md:h-[calc(100vh-100px)] md:flex-col">
+          {tabs.map((item) => {
+            const Icon = item.icon
+            const active = tab === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTab(item.id)}
+                className={`focus-track flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-3 text-sm md:flex-none md:flex-col ${
+                  active
+                    ? 'bg-lot-reserved text-lot-asphalt'
+                    : 'text-lot-muted hover:bg-lot-lane/8 hover:text-lot-lane'
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="md:text-[11px]">{item.label}</span>
+              </button>
+            )
+          })}
+          <div className="mt-auto hidden rounded-control border border-lot-divider p-2 text-center md:block">
+            <Activity className="mx-auto mb-2 h-4 w-4 text-lot-empty" />
+            <p className="digital-text text-lg font-bold text-lot-empty">{data.slots.length}</p>
+            <p className="text-[10px] text-lot-muted">slots</p>
+          </div>
+        </nav>
+
+        <main className="min-w-0 pb-10">
+          {tab === 'overview' && account.role === 'admin' && <AdminDashboard data={data} />}
+          {tab === 'devices' && account.role === 'admin' && <Sensors sensors={data.sensors} />}
+          {tab === 'resident' && <UserDashboard residentId={account.resident_id ?? data.residents[0]?.id ?? ''} data={data} />}
+        </main>
+      </div>
+    </div>
   )
 }

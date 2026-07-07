@@ -4,4 +4,4 @@ export const FEE_NEXT_HOUR = 37000
 export const SENSOR_UPDATE_FREQUENCY = '5s'
 export const WARNING_OCCUPANCY_RATE = 80
 
-export const TIDEPOOL_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#e34948', '#7952b3']
+export const TIDEPOOL_COLORS = ['#2C7DA0', '#2FBF71', '#F0B429', '#D64545', '#ECE7D8']

@@ -1,163 +1,203 @@
+import { useMemo, useState } from 'react'
+import { CarFront, Clock3, Users, WalletCards } from 'lucide-react'
 import type { DashboardData } from '@/api/dashboard'
-import { KpiCard } from '@/components/ui/KpiCard'
-import { SectionHeader } from '@/components/ui/SectionHeader'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { SlotGrid } from '@/components/dashboard/SlotGrid'
-import { ResidentTable } from '@/components/dashboard/ResidentTable'
-import { SensorStatusPanel } from '@/components/dashboard/SensorStatusPanel'
-import { TrafficChart } from '@/components/dashboard/TrafficChart'
-import { EnvironmentChart } from '@/components/dashboard/EnvironmentChart'
-import { BarCategoryChart } from '@/components/charts/BarCategoryChart'
-import { HeatmapChart } from '@/components/charts/HeatmapChart'
-import { DonutChart } from '@/components/charts/DonutChart'
-
-import { useSlotsOverview } from '@/hooks/useSlotsOverview'
 import { useParkingHistory } from '@/hooks/useParkingHistory'
 import { usePaymentsOverview } from '@/hooks/usePaymentsOverview'
-import { useSensorStream } from '@/hooks/useSensorStream'
+import { useSlotsOverview } from '@/hooks/useSlotsOverview'
+import { formatVND } from '@/lib/formatters'
+import { AreaPanelChart, BarPanelChart, DonutPanelChart, Heatmap, TwoLineChart } from '@/components/charts/Charts'
+import { ParkingLotMap } from '@/components/dashboard/ParkingLotMap'
+import { Metric, Panel, StatusPill, TableShell } from '@/components/ui/Primitives'
 
-import { Car, Users, Wallet, Activity } from 'lucide-react'
+type RangeKey = 'today' | '7d' | '30d'
 
 export function AdminDashboard({ data }: { data: DashboardData }) {
-  // Hooks
-  const { stats: slotStats, slots } = useSlotsOverview(data)
+  const [range, setRange] = useState<RangeKey>('7d')
+  const { stats, slots } = useSlotsOverview(data)
   const { currentlyParked, buildHeatmap } = useParkingHistory(data)
-  const { totalRevenue, groupByDay, groupByStatus } = usePaymentsOverview(data)
-  
-  // Realtime sensor stream (polling every 30s)
-  const { data: sensorData, flameDetected, buzzerActive, barrierOpen, irActive, loading: sensorLoading } = useSensorStream(24)
+  const { payments, totalRevenue, groupByStatus, groupByMethod } = usePaymentsOverview(data)
 
-  const revenueData = groupByDay(7)
-  const paymentStatusData = groupByStatus().map(s => {
-    let color = '#3B82F6'
-    if (s.status === 'paid') color = '#22C55E'
-    if (s.status === 'pending') color = '#F59E0B'
-    if (s.status === 'failed') color = '#EF4444'
-    return { name: s.status, value: s.amount, color }
-  })
-  const heatmapMatrix = buildHeatmap()
+  const days = range === 'today' ? 1 : range === '7d' ? 7 : 30
+  const traffic = useMemo(() => buildTraffic(data.history), [data.history])
+  const revenue = useMemo(() => buildRevenue(payments, days), [payments, days])
+  const topSlots = useMemo(() => buildTopSlots(data.history), [data.history])
+  const methodData = groupByMethod().map((item, index) => ({
+    name: item.method || 'unknown',
+    value: item.count,
+    color: ['#2C7DA0', '#F0B429', '#2FBF71', '#D64545'][index % 4],
+  }))
+  const statusData = groupByStatus().map((item) => ({
+    name: item.status || 'unknown',
+    value: item.count,
+    color: item.status === 'success' || item.status === 'paid' ? '#2FBF71' : item.status === 'pending' ? '#F0B429' : '#D64545',
+  }))
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* ── KPI Row ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <KpiCard
-          title="Occupancy Rate"
-          value={`${slotStats.occupancyRate}%`}
-          subtitle={`${slotStats.occupied} / ${slotStats.total - slotStats.maintenance} active slots`}
-          icon={Car}
-          trend={{ value: 'Stable', up: slotStats.occupancyRate < 80 }}
-          accentClass={slotStats.occupancyRate >= 80 ? 'bg-sp-danger-dim text-sp-danger' : 'bg-sp-brand-dim text-sp-brand'}
-          iconColor={slotStats.occupancyRate >= 80 ? 'text-sp-danger' : 'text-sp-brand'}
-        />
-        <KpiCard
-          title="Currently Parked"
-          value={currentlyParked.length}
-          subtitle="Vehicles in facility"
-          icon={Activity}
-          accentClass="bg-sp-available-dim"
-          iconColor="text-sp-available"
-        />
-        <KpiCard
-          title="Total Residents"
-          value={data.residents.length}
-          subtitle="Registered accounts"
-          icon={Users}
-          accentClass="bg-sp-elevated"
-          iconColor="text-sp-text"
-        />
-        <KpiCard
-          title="Revenue (7d)"
-          value={`${(totalRevenue / 1000000).toFixed(1)}M`}
-          subtitle="VND total"
-          icon={Wallet}
-          accentClass="bg-sp-reserved-dim"
-          iconColor="text-sp-reserved"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* ── Center Area: Map & Heatmap (2/3 width) ── */}
-        <div className="xl:col-span-2 space-y-6">
-          {/* Parking Map */}
-          <div className="sp-panel p-6">
-            <SectionHeader title="Realtime Slot Map" subtitle="Live view of parking facility" className="mb-6" />
-            <div className="h-[400px] flex flex-col">
-              <SlotGrid slots={slots} />
-            </div>
-          </div>
-
-          {/* Traffic Heatmap */}
-          <div className="sp-panel p-6">
-            <SectionHeader title="Peak-hour Heatmap" subtitle="Traffic density by hour and day" className="mb-6" />
-            <HeatmapChart matrix={heatmapMatrix} height={200} />
-          </div>
-
-          {/* Currently Parked Drill-down */}
-          <div className="sp-panel p-6">
-            <SectionHeader 
-              title="Active Parking Sessions" 
-              subtitle="Vehicles currently inside the facility" 
-              className="mb-6" 
-              action={<StatusBadge status="in_progress" label={`${currentlyParked.length} Active`} />}
-            />
-            <ResidentTable history={currentlyParked} />
-          </div>
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+        <div>
+          <div className="lane-stripe mb-3 w-44" />
+          <h1 className="digital-text text-4xl font-bold text-lot-lane">Management Overview</h1>
+          <p className="text-lot-muted">Live slot state, traffic flow, payments, and resident assignment.</p>
         </div>
-
-        {/* ── Right Column: Charts & Sensors (1/3 width) ── */}
-        <div className="xl:col-span-1 space-y-6">
-          {/* Safety & Sensors */}
-          <div className="sp-panel p-6 relative overflow-hidden">
-            {flameDetected && (
-              <div className="absolute inset-0 bg-sp-danger-dim animate-danger-flash pointer-events-none" />
-            )}
-            <SectionHeader title="Live IoT Sensors" subtitle="Security and environment" className="mb-6" />
-            <div className="space-y-6">
-              <SensorStatusPanel 
-                flameDetected={flameDetected}
-                buzzerActive={buzzerActive}
-                barrierOpen={barrierOpen}
-                irActive={irActive}
-              />
-              <div>
-                <h4 className="text-xs font-semibold text-sp-text-3 uppercase tracking-wider mb-3 pl-1">Environment (24h)</h4>
-                <EnvironmentChart data={sensorData} loading={sensorLoading} />
-              </div>
-              <div>
-                <h4 className="text-xs font-semibold text-sp-text-3 uppercase tracking-wider mb-3 pl-1">Traffic (24h)</h4>
-                <TrafficChart data={sensorData} loading={sensorLoading} />
-              </div>
-            </div>
-          </div>
-
-          {/* Financials */}
-          <div className="sp-panel p-6">
-            <SectionHeader title="Financial Overview" subtitle="Revenue tracking" className="mb-6" />
-            <div className="space-y-8">
-              <div>
-                <h4 className="text-xs font-semibold text-sp-text-3 uppercase tracking-wider mb-3 pl-1">Revenue (Last 7 Days)</h4>
-                <BarCategoryChart 
-                  data={revenueData} 
-                  xKey="label" 
-                  yKey="amount" 
-                  formatY={(v) => `${(v / 1000).toFixed(0)}k`} 
-                  height={180} 
-                  color="#22C55E"
-                />
-              </div>
-              <div>
-                <h4 className="text-xs font-semibold text-sp-text-3 uppercase tracking-wider mb-3 pl-1">Payment Status</h4>
-                <DonutChart 
-                  data={paymentStatusData} 
-                  height={180} 
-                  formatValue={(v) => `${(v / 1000).toFixed(0)}k VND`} 
-                />
-              </div>
-            </div>
-          </div>
+        <div className="control-surface flex items-center gap-2 rounded-control p-2">
+          {(['today', '7d', '30d'] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setRange(item)}
+              className={`focus-track rounded-control px-3 py-2 text-sm font-semibold ${
+                range === item ? 'bg-lot-reserved text-lot-asphalt' : 'text-lot-muted hover:text-lot-lane'
+              }`}
+            >
+              {item === 'today' ? 'Today' : item === '7d' ? '7 days' : '30 days'}
+            </button>
+          ))}
         </div>
       </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Occupancy" value={`${stats.occupancyRate}%`} helper={`${stats.occupied} of ${stats.total} slots occupied`} icon={CarFront} tone={stats.occupancyRate > 80 ? 'occupied' : 'empty'} />
+        <Metric label="Currently parked" value={currentlyParked.length} helper="Realtime session table" icon={Clock3} tone="reserved" />
+        <Metric label="Residents" value={data.residents.length} helper="Registered profiles" icon={Users} tone="lane" />
+        <Metric label="Revenue" value={formatCompact(totalRevenue)} helper="Successful payments" icon={WalletCards} tone="sensor" />
+      </div>
+
+      <Panel title="Real-time floor plan" subtitle="Custom lot layout colored by parking_slot.status">
+        <ParkingLotMap slots={slots} history={data.history} />
+      </Panel>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title="Hourly in/out traffic" subtitle="Entries from time_in, exits from time_out">
+          <TwoLineChart data={traffic} xKey="hour" firstKey="entries" secondKey="exits" />
+        </Panel>
+        <Panel title="Peak hours by weekday" subtitle="24 hour by 7 day density">
+          <Heatmap matrix={buildHeatmap()} />
+        </Panel>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Panel title="Revenue over time" subtitle={`Range: ${range}`}>
+          <AreaPanelChart data={revenue} xKey="label" yKey="amount" color="#2FBF71" />
+        </Panel>
+        <Panel title="Most-used slots" subtitle="Top 10 by parking_history">
+          <BarPanelChart data={topSlots} xKey="slot" yKey="count" layout="vertical" color="#F0B429" />
+        </Panel>
+        <Panel title="Payment status">
+          <DonutPanelChart data={statusData} />
+        </Panel>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Panel title="Payment methods" subtitle="Count by payment method">
+          <DonutPanelChart data={methodData} />
+        </Panel>
+        <Panel title="Currently parked vehicles" subtitle="Filter-ready realtime table" className="xl:col-span-2">
+          <TableShell>
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-black/24 text-xs uppercase text-lot-muted">
+                <tr>
+                  <th className="px-3 py-3">Slot</th>
+                  <th className="px-3 py-3">Plate</th>
+                  <th className="px-3 py-3">Resident</th>
+                  <th className="px-3 py-3">Time in</th>
+                  <th className="px-3 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-lot-divider">
+                {currentlyParked.map((item) => (
+                  <tr key={item.id} className="hover:bg-lot-lane/5">
+                    <td className="px-3 py-3 font-semibold text-lot-lane">{item.slot_number}</td>
+                    <td className="px-3 py-3 digital-text text-lg">{item.license_plate}</td>
+                    <td className="px-3 py-3 text-lot-muted">{item.resident?.full_name ?? 'Visitor'}</td>
+                    <td className="px-3 py-3 text-lot-muted">{new Date(item.time_in).toLocaleString('vi-VN')}</td>
+                    <td className="px-3 py-3"><StatusPill status={item.status} /></td>
+                  </tr>
+                ))}
+                {currentlyParked.length === 0 && <EmptyRow colSpan={5} text="No active parked vehicles" />}
+              </tbody>
+            </table>
+          </TableShell>
+        </Panel>
+      </div>
+
+      <Panel title="Residents and assigned slots" subtitle="resident joined with parking_slot">
+        <TableShell>
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-black/24 text-xs uppercase text-lot-muted">
+              <tr>
+                <th className="px-3 py-3">Resident</th>
+                <th className="px-3 py-3">Apartment</th>
+                <th className="px-3 py-3">Phone</th>
+                <th className="px-3 py-3">RFID</th>
+                <th className="px-3 py-3">Assigned slot</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-lot-divider">
+              {data.residents.map((resident) => {
+                const assigned = slots.find((slot) => slot.resident_id === resident.id)
+                return (
+                  <tr key={resident.id} className="hover:bg-lot-lane/5">
+                    <td className="px-3 py-3 font-semibold text-lot-lane">{resident.full_name}</td>
+                    <td className="px-3 py-3 text-lot-muted">{resident.apartment}</td>
+                    <td className="px-3 py-3 text-lot-muted">{resident.phone}</td>
+                    <td className="px-3 py-3 digital-text">{maskRfid(resident.rfid_uid)}</td>
+                    <td className="px-3 py-3">{assigned ? `${assigned.slot_number} (${assigned.status})` : 'Visitor / none'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </TableShell>
+      </Panel>
     </div>
+  )
+}
+
+function buildTraffic(history: DashboardData['history']) {
+  return Array.from({ length: 24 }).map((_, hour) => {
+    const entries = history.filter((item) => new Date(item.time_in).getHours() === hour).length
+    const exits = history.filter((item) => item.time_out && new Date(item.time_out).getHours() === hour).length
+    return { hour: `${hour}:00`, entries, exits }
+  })
+}
+
+function buildRevenue(payments: DashboardData['payments'], days: number) {
+  const now = new Date()
+  return Array.from({ length: days }).map((_, index) => {
+    const date = new Date(now)
+    date.setDate(date.getDate() - (days - 1 - index))
+    const key = date.toISOString().split('T')[0]
+    const amount = payments
+      .filter((item) => (item.status === 'success' || item.status === 'paid') && (item.paid_at ?? item.created_at).startsWith(key))
+      .reduce((sum, item) => sum + Number(item.amount), 0)
+    return { label: days === 1 ? date.toLocaleTimeString('vi-VN', { hour: '2-digit' }) : date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }), amount }
+  })
+}
+
+function buildTopSlots(history: DashboardData['history']) {
+  const counts = new Map<string, number>()
+  for (const item of history) counts.set(item.slot_number, (counts.get(item.slot_number) ?? 0) + 1)
+  return Array.from(counts.entries())
+    .map(([slot, count]) => ({ slot, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+}
+
+function formatCompact(amount: number) {
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`
+  return formatVND(amount)
+}
+
+function maskRfid(value: string) {
+  if (value.length <= 4) return '****'
+  return `${value.slice(0, 2)}****${value.slice(-2)}`
+}
+
+function EmptyRow({ colSpan, text }: { colSpan: number; text: string }) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="px-3 py-8 text-center text-lot-muted">{text}</td>
+    </tr>
   )
 }

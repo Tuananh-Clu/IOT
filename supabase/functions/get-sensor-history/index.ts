@@ -35,9 +35,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const raw = await response.json()
-
-    // InfluxDB v1 trả về dạng lồng nhau (results -> series -> columns/values)
-    // Chuyển thành mảng object phẳng, dễ dùng bên React
     const series = raw?.results?.[0]?.series?.[0]
     const rows = series
       ? series.values.map((vals: any[]) => {
